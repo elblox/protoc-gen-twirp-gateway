@@ -6,6 +6,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	pgs "github.com/lyft/protoc-gen-star"
 	pgsgo "github.com/lyft/protoc-gen-star/lang/go"
 	"google.golang.org/genproto/googleapis/api/annotations"
@@ -26,12 +27,13 @@ func (g *GatewayModule) InitContext(c pgs.BuildContext) {
 	g.ctx = pgsgo.InitContext(c.Parameters())
 
 	tpl := template.New("gw").Funcs(map[string]interface{}{
-		"package":     g.ctx.PackageName,
-		"name":        g.ctx.Name,
-		"hasHttpRule": g.hasHttpRule,
-		"method":      g.method,
-		"pattern":     g.pattern,
-		"body":        g.body,
+		"package":         g.ctx.PackageName,
+		"name":            g.ctx.Name,
+		"hasHttpRule":     g.hasHttpRule,
+		"method":          g.method,
+		"pattern":         g.pattern,
+		"body":            g.body,
+		"inputFieldTypes": g.inputFieldTypes,
 	})
 
 	g.tpl = template.Must(tpl.Parse(tmpl))
@@ -62,6 +64,17 @@ func (g *GatewayModule) hasHttpRule(m pgs.Method) bool {
 	rule := &annotations.HttpRule{}
 	ok, _ := m.Extension(annotations.E_Http, rule)
 	return ok
+}
+
+func (g *GatewayModule) inputFieldTypes(m pgs.Method) string {
+	fields := map[string]descriptor.FieldDescriptorProto_Type{}
+	for _, f := range m.Input().Fields() {
+		if *f.Descriptor().Type == descriptor.FieldDescriptorProto_TYPE_BOOL {
+			fields[f.Name().String()] = descriptor.FieldDescriptorProto_TYPE_BOOL
+		}
+	}
+
+	return fmt.Sprintf("%#v", fields)
 }
 
 func (g *GatewayModule) method(m pgs.Method) string {
@@ -145,12 +158,15 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 )
 
 type gatewayRoute struct {
-	match    *regexp.Regexp
-	body     string
-	endpoint string
+	match           *regexp.Regexp
+	body            string
+	endpoint        string
+	inputFieldTypes map[string]descriptor.FieldDescriptorProto_Type
 }
 
 func (g *gatewayRoute) try(path string) (url.Values, bool) {
@@ -206,7 +222,7 @@ func {{ .Name }}Gateway() func(next http.Handler) http.Handler {
 routes := make(map[string][]*gatewayRoute)
 {{ range .Methods }}
 {{ if hasHttpRule . }}
-routes[{{ method . }}] = append(routes[{{ method . }}], &gatewayRoute{regexp.MustCompile({{ pattern . }}), {{ body . }}, {{ $service.Name }}PathPrefix + {{ .Name | printf "%q" }}})
+routes[{{ method . }}] = append(routes[{{ method . }}], &gatewayRoute{regexp.MustCompile({{ pattern . }}), {{ body . }}, {{ $service.Name }}PathPrefix + {{ .Name | printf "%q" }}, {{ inputFieldTypes . }}})
 {{ end }}
 {{ end }}
 
@@ -248,7 +264,13 @@ routes[{{ method . }}] = append(routes[{{ method . }}], &gatewayRoute{regexp.Mus
 					query := r.URL.Query()
 					for path := range query {
 						// TODO(shane): Freak out on error!
-						gatewaySetJSON(request, strings.Trim(gr.body + "." + path, "."), query.Get(path))
+						var value interface{} = query.Get(path)
+						switch gr.inputFieldTypes[path] {
+						case descriptor.FieldDescriptorProto_TYPE_BOOL:
+							value = value == "true" || value == "1"
+						}
+
+						gatewaySetJSON(request, strings.Trim(gr.body + "." + path, "."), value)
 					}
 
 					// TODO(shane): Freak out on error!

@@ -41,6 +41,7 @@ message ListHatsResponse {
 
 message GetHatRequest {
   string id = 1;
+  bool deleted = 2;
 }
 message GetHatResponse {
   Hat hat = 1;
