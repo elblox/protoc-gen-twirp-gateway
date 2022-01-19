@@ -217,27 +217,28 @@ func gatewaySetJSON(data interface{}, path string, value interface{}) error {
 {{ range $index, $service := .Services }}
 // {{ .Name }}Gateway middleware rewrites requests and merges query params into a Twerp RPC request.
 func {{ .Name }}Gateway() func(next http.Handler) http.Handler {
-
 	// TODO(shane): Move to var to make testing easier?
-routes := make(map[string][]*gatewayRoute)
+	routes := make(map[string][]*gatewayRoute)
 {{ range .Methods }}
 {{ if hasHttpRule . }}
-routes[{{ method . }}] = append(routes[{{ method . }}], &gatewayRoute{regexp.MustCompile({{ pattern . }}), {{ body . }}, {{ $service.Name }}PathPrefix + {{ .Name | printf "%q" }}, {{ inputFieldTypes . }}})
+	routes[{{ method . }}] = append(routes[{{ method . }}], &gatewayRoute{regexp.MustCompile({{ pattern . }}), {{ body . }}, {{ $service.Name }}PathPrefix + {{ .Name | printf "%q" }}, {{ inputFieldTypes . }}})
 {{ end }}
 {{ end }}
 
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			content := r.Header.Get("Content-Type")
-			i := strings.Index(content, ";")
-			if i == -1 {
-				i = len(content)
-			}
+			if r.ContentLength > 0 {
+				content := r.Header.Get("Content-Type")
+				i := strings.Index(content, ";")
+				if i == -1 {
+					i = len(content)
+				}
 
-			// TODO(shane): Only JSON payloads supported.
-			if strings.TrimSpace(strings.ToLower(content[:i])) != "application/json" {
-				http.Error(w, http.StatusText(http.StatusUnsupportedMediaType), http.StatusUnsupportedMediaType)
-				return
+				// TODO(shane): Only JSON payloads supported.
+				if strings.TrimSpace(strings.ToLower(content[:i])) != "application/json" {
+					http.Error(w, http.StatusText(http.StatusUnsupportedMediaType), http.StatusUnsupportedMediaType)
+					return
+				}
 			}
 
 			for _, gr := range routes[r.Method] {
@@ -252,13 +253,15 @@ routes[{{ method . }}] = append(routes[{{ method . }}], &gatewayRoute{regexp.Mus
 					// TODO(shane): Decode body, add query params to structure.
 					// TODO(shane): What are the documented rules regarding body: "*".
 					request := map[string]interface{}{}
-					err := json.NewDecoder(r.Body).Decode(&request)
-					switch err {
-					case nil, io.EOF:
-						// Empty or parsed.
-					default:
-						http.Error(w, err.Error(), http.StatusBadRequest)
-						return
+					if r.ContentLength > 0 {
+						err := json.NewDecoder(r.Body).Decode(&request)
+						switch err {
+						case nil, io.EOF:
+							// Empty or parsed.
+						default:
+							http.Error(w, err.Error(), http.StatusBadRequest)
+							return
+						}
 					}
 
 					query := r.URL.Query()
@@ -277,6 +280,7 @@ routes[{{ method . }}] = append(routes[{{ method . }}], &gatewayRoute{regexp.Mus
 					encoded, _ := json.Marshal(request)
 
 					body := bytes.NewReader(encoded)
+					r.Header.Set("Content-Type", "application/json")
 					r.ContentLength = int64(body.Len())
 					r.Body = ioutil.NopCloser(body)
 					r.Method = http.MethodPost
