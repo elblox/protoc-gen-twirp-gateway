@@ -3,10 +3,9 @@ module github.com/elblox/protoc-gen-twirp-gateway
 go 1.12
 
 require (
-	github.com/golang/protobuf v1.2.0 // indirect
-	github.com/lyft/protoc-gen-star v0.4.10
-	github.com/spf13/afero v1.2.2 // indirect
-	github.com/stretchr/testify v1.3.0 // indirect
-	golang.org/x/sync v0.0.0-20181108010431-42b317875d0f // indirect
-	google.golang.org/genproto v0.0.0-20180817151627-c66870c02cf8
+	github.com/lyft/protoc-gen-star v0.6.0
+	github.com/spf13/afero v1.8.0 // indirect
+	golang.org/x/text v0.3.7 // indirect
+	google.golang.org/genproto v0.0.0-20220118154757-00ab72f36ad5
+	google.golang.org/protobuf v1.27.1
 )

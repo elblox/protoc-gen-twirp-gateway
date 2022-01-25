@@ -6,10 +6,10 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	pgs "github.com/lyft/protoc-gen-star"
 	pgsgo "github.com/lyft/protoc-gen-star/lang/go"
 	"google.golang.org/genproto/googleapis/api/annotations"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 type GatewayModule struct {
@@ -67,10 +67,10 @@ func (g *GatewayModule) hasHttpRule(m pgs.Method) bool {
 }
 
 func (g *GatewayModule) inputFieldTypes(m pgs.Method) string {
-	fields := map[string]descriptor.FieldDescriptorProto_Type{}
+	fields := map[string]descriptorpb.FieldDescriptorProto_Type{}
 	for _, f := range m.Input().Fields() {
-		if *f.Descriptor().Type == descriptor.FieldDescriptorProto_TYPE_BOOL {
-			fields[f.Name().String()] = descriptor.FieldDescriptorProto_TYPE_BOOL
+		if *f.Descriptor().Type == descriptorpb.FieldDescriptorProto_TYPE_BOOL {
+			fields[f.Name().String()] = descriptorpb.FieldDescriptorProto_TYPE_BOOL
 		}
 	}
 
@@ -159,14 +159,14 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 type gatewayRoute struct {
 	match           *regexp.Regexp
 	body            string
 	endpoint        string
-	inputFieldTypes map[string]descriptor.FieldDescriptorProto_Type
+	inputFieldTypes map[string]descriptorpb.FieldDescriptorProto_Type
 }
 
 func (g *gatewayRoute) try(path string) (url.Values, bool) {
@@ -269,7 +269,7 @@ func {{ .Name }}Gateway() func(next http.Handler) http.Handler {
 						// TODO(shane): Freak out on error!
 						var value interface{} = query.Get(path)
 						switch gr.inputFieldTypes[path] {
-						case descriptor.FieldDescriptorProto_TYPE_BOOL:
+						case descriptorpb.FieldDescriptorProto_TYPE_BOOL:
 							value = value == "true" || value == "1"
 						}
 
