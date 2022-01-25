@@ -5,8 +5,8 @@ for proto in $@; do
   protoc \
     -I . \
     -I /vendor \
-    --go_out="." \
-    --twirp_out="." \
-    --twirp-gateway_out="." \
+    --go_out="paths=source_relative:." \
+    --twirp_out="paths=source_relative:." \
+    --twirp-gateway_out="paths=source_relative:." \
     $proto
 done

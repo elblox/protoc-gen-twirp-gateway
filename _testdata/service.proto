@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package shanna.twirp.gw.main.v1;
-option go_package = "main";
+option go_package = "github.com/elblox/protoc-gen-twirp-gateway/_testdata/main";
 
 import "google/api/annotations.proto";
 
